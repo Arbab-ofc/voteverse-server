@@ -19,7 +19,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: "https://voteverse-client.vercel.app/",  
+    origin: "https://voteverse-client.vercel.app",  
     credentials: true                 
   })
 );
