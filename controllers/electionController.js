@@ -293,6 +293,10 @@ export const addCandidateToElection = async (req, res) => {
       return res.status(403).json({ message: 'Only election creator can add candidates' });
     }
 
+    if (election.isActive === false || (election.endDate && new Date(election.endDate) <= new Date())) {
+      return res.status(400).json({ message: 'Cannot add candidates after the election has ended' });
+    }
+
     const isAlreadyAdded = election.candidates.includes(candidateId);
     if (isAlreadyAdded) {
       return res.status(400).json({ message: 'Candidate already added to this election' });
@@ -323,6 +327,10 @@ export const removeCandidateFromElection = async (req, res) => {
 
     if (election.createdBy.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Only election creator can remove candidates' });
+    }
+
+    if (election.isActive === false || (election.endDate && new Date(election.endDate) <= new Date())) {
+      return res.status(400).json({ message: 'Cannot remove candidates after the election has ended' });
     }
 
     const candidateIndex = election.candidates.findIndex(

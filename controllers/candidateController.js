@@ -32,6 +32,13 @@ export const createCandidate = async (req, res) => {
       });
     }
 
+    if (election.isActive === false || (election.endDate && new Date(election.endDate) <= new Date())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot add candidates after the election has ended'
+      });
+    }
+
     
     const newCandidate = new Candidate({
       name,
