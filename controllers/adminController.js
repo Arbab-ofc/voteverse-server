@@ -4,11 +4,33 @@ import ContactMessage from "../models/ContactMessage.js";
 
 export const listUsers = async (req, res) => {
   try {
-    const users = await User.find()
-      .select("-password -otp -otpExpiresAt")
-      .sort({ createdAt: -1 });
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 50);
+    const search = (req.query.search || "").trim();
 
-    res.status(200).json({ success: true, users });
+    const filter = search
+      ? {
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { email: { $regex: search, $options: "i" } },
+          ],
+        }
+      : {};
+
+    const total = await User.countDocuments(filter);
+    const users = await User.find(filter)
+      .select("-password -otp -otpExpiresAt")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      users,
+      page,
+      pages: Math.max(Math.ceil(total / limit), 1),
+      total,
+    });
   } catch (error) {
     console.error("❌ Error in listUsers:", error);
     res.status(500).json({ message: "Server error while fetching users" });
@@ -51,14 +73,54 @@ export const promoteUser = async (req, res) => {
   }
 };
 
+export const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (req.user?.id?.toString() === id.toString()) {
+      return res.status(400).json({ message: "You cannot delete your own account" });
+    }
+
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    await user.deleteOne();
+    res.status(200).json({ success: true, message: "User deleted" });
+  } catch (error) {
+    console.error("❌ Error in deleteUser:", error);
+    res.status(500).json({ message: "Server error while deleting user" });
+  }
+};
+
 export const listElections = async (req, res) => {
   try {
-    const elections = await Election.find()
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 50);
+    const search = (req.query.search || "").trim();
+
+    const filter = search
+      ? {
+          $or: [
+            { title: { $regex: search, $options: "i" } },
+            { description: { $regex: search, $options: "i" } },
+          ],
+        }
+      : {};
+
+    const total = await Election.countDocuments(filter);
+    const elections = await Election.find(filter)
       .populate("createdBy", "name email")
       .populate("candidates")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
 
-    res.status(200).json({ success: true, elections });
+    res.status(200).json({
+      success: true,
+      elections,
+      page,
+      pages: Math.max(Math.ceil(total / limit), 1),
+      total,
+    });
   } catch (error) {
     console.error("❌ Error in listElections:", error);
     res.status(500).json({ message: "Server error while fetching elections" });
@@ -81,10 +143,49 @@ export const deleteElectionAdmin = async (req, res) => {
 
 export const listContactMessages = async (req, res) => {
   try {
-    const messages = await ContactMessage.find().sort({ createdAt: -1 });
-    res.status(200).json({ success: true, messages });
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 50);
+    const search = (req.query.search || "").trim();
+
+    const filter = search
+      ? {
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { email: { $regex: search, $options: "i" } },
+            { message: { $regex: search, $options: "i" } },
+          ],
+        }
+      : {};
+
+    const total = await ContactMessage.countDocuments(filter);
+    const messages = await ContactMessage.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      messages,
+      page,
+      pages: Math.max(Math.ceil(total / limit), 1),
+      total,
+    });
   } catch (error) {
     console.error("❌ Error in listContactMessages:", error);
     res.status(500).json({ message: "Server error while fetching contact messages" });
+  }
+};
+
+export const deleteContactMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const message = await ContactMessage.findById(id);
+    if (!message) return res.status(404).json({ message: "Contact message not found" });
+
+    await message.deleteOne();
+    res.status(200).json({ success: true, message: "Contact message deleted" });
+  } catch (error) {
+    console.error("❌ Error in deleteContactMessage:", error);
+    res.status(500).json({ message: "Server error while deleting contact message" });
   }
 };
