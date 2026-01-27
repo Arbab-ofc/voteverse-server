@@ -17,10 +17,23 @@ dotenv.config();
 const app = express();
 
 
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "https://voteverse-client.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:4173"
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: "https://voteverse-client.vercel.app",  
-    credentials: true                 
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true
   })
 );
 app.use(express.json());
@@ -40,7 +53,20 @@ app.use('/api/contact', ContactRouter);
 
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server started on port ${PORT}`);
-  connectDB();
-});
+const server = async()=>{
+  try{
+    await connectDB();
+    app.listen(PORT,()=>{
+      console.log(`server is running at port ${PORT}`);
+    });
+  }
+  catch(error){
+    console.log(`Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+// app.listen(PORT, () => {
+//   console.log(`🚀 Server started on port ${PORT}`);
+//   connectDB();
+// });
+server();
