@@ -88,6 +88,34 @@ export const getElectionById = async (req, res) => {
   }
 };
 
+export const getElectionByIdPublic = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const election = await Election.findById(id)
+      .populate('createdBy', 'name email')
+      .populate('candidates', 'name bio voteCount');
+
+    if (!election) {
+      return res.status(404).json({
+        success: false,
+        message: 'Election not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      election,
+    });
+  } catch (error) {
+    console.error('❌ Error in getElectionByIdPublic:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching election',
+    });
+  }
+};
+
 export const updateElection = async (req, res) => {
   try {
     const { id } = req.params;

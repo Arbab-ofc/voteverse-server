@@ -11,6 +11,7 @@ import CandidateRouter from './routes/candidateRoutes.js';
 import VoterLogRouter from './routes/voterLogRoutes.js';
 import ContactRouter from './routes/contactRoutes.js';
 import AdminRouter from './routes/adminRoutes.js';
+import PublicRouter from './routes/publicRoutes.js';
 import { initLogger } from './utils/logger.js';
 import { initSocket } from './socket.js';
 
@@ -55,6 +56,7 @@ app.use('/api/v2/candidates', CandidateRouter);
 app.use('/api/v2/voter-logs', VoterLogRouter);
 app.use('/api/v2/contact', ContactRouter);
 app.use('/api/v2/admin', AdminRouter);
+app.use('/api/v2/public', PublicRouter);
 
 
 
