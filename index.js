@@ -45,13 +45,13 @@ app.use(cookieParser());
 app.get('/', (req, res) => {
   res.send('VoteVerse API is running...');
 });
-app.use('/api/users', UserRouter);
-app.use('/api/elections', ElectionRouter);
-app.use('/api/votes', VoteRouter);
-app.use('/api/candidates', CandidateRouter);
-app.use('/api/voter-logs', VoterLogRouter);
-app.use('/api/contact', ContactRouter);
-app.use('/api/admin', AdminRouter);
+app.use('/api/v2/users', UserRouter);
+app.use('/api/v2/elections', ElectionRouter);
+app.use('/api/v2/votes', VoteRouter);
+app.use('/api/v2/candidates', CandidateRouter);
+app.use('/api/v2/voter-logs', VoterLogRouter);
+app.use('/api/v2/contact', ContactRouter);
+app.use('/api/v2/admin', AdminRouter);
 
 
 
