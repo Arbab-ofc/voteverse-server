@@ -10,6 +10,7 @@ import VoteRouter from './routes/voteRoutes.js';
 import CandidateRouter from './routes/candidateRoutes.js';
 import VoterLogRouter from './routes/voterLogRoutes.js';
 import ContactRouter from './routes/contactRoutes.js';
+import AdminRouter from './routes/adminRoutes.js';
 import { initSocket } from './socket.js';
 
 
@@ -48,6 +49,7 @@ app.use('/api/votes', VoteRouter);
 app.use('/api/candidates', CandidateRouter);
 app.use('/api/voter-logs', VoterLogRouter);
 app.use('/api/contact', ContactRouter);
+app.use('/api/admin', AdminRouter);
 
 
 
