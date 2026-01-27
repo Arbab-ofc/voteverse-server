@@ -32,7 +32,15 @@ const electionSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
     }
-  ]
+  ],
+  votePasswordHash: {
+    type: String,
+    select: false
+  },
+  isPasswordProtected: {
+    type: Boolean,
+    default: false
+  }
 }, { timestamps: true });
 
 const Election = mongoose.model('Election', electionSchema);

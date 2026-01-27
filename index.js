@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'http';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import connectDB from './config/dbConnector.js';
@@ -9,13 +10,11 @@ import VoteRouter from './routes/voteRoutes.js';
 import CandidateRouter from './routes/candidateRoutes.js';
 import VoterLogRouter from './routes/voterLogRoutes.js';
 import ContactRouter from './routes/contactRoutes.js';
-
-
+import { initSocket } from './socket.js';
 
 
 dotenv.config();
 const app = express();
-
 
 const allowedOrigins = [
   process.env.CLIENT_URL,
@@ -53,10 +52,26 @@ app.use('/api/contact', ContactRouter);
 
 
 const PORT = process.env.PORT || 5000;
+const httpServer = http.createServer(app);
+const io = initSocket(httpServer, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true
+  }
+});
+
+io.on("connection", (socket) => {
+  socket.on("join-election", (electionId) => {
+    if (electionId) {
+      socket.join(`election:${electionId}`);
+    }
+  });
+});
+
 const server = async()=>{
   try{
     await connectDB();
-    app.listen(PORT,()=>{
+    httpServer.listen(PORT, () => {
       console.log(`server is running at port ${PORT}`);
     });
   }
@@ -65,8 +80,4 @@ const server = async()=>{
     process.exit(1);
   }
 }
-// app.listen(PORT, () => {
-//   console.log(`🚀 Server started on port ${PORT}`);
-//   connectDB();
-// });
 server();

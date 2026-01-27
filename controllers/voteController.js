@@ -2,6 +2,8 @@ import Vote from "../models/Vote.js";
 import Election from "../models/Election.js";
 import Candidate from "../models/Candidate.js";
 import User from "../models/User.js";
+import bcrypt from "bcryptjs";
+import { getIO } from "../socket.js";
 
 
 
@@ -9,13 +11,13 @@ export const castVote = async (req, res) => {
   try {
     const userId = req.user.id;
     console.log("🧾 Incoming vote request:", req.body);
-    const { electionId, candidateId } = req.body;
+    const { electionId, candidateId, votePassword } = req.body;
     if (!electionId || !candidateId) {
   return res.status(400).json({ message: 'Missing electionId or candidateId' });
 }
     console.log('Casting vote:', { userId, electionId, candidateId });
 
-    const election = await Election.findById(electionId);
+    const election = await Election.findById(electionId).select("+votePasswordHash");
 
     console.log('Election found:', election);
     if (!election) {
@@ -24,6 +26,15 @@ export const castVote = async (req, res) => {
 
     if (!election.isActive || new Date() > election.endDate) {
       return res.status(400).json({ message: 'Election is not active' });
+    }
+    if (election.isPasswordProtected) {
+      if (!votePassword) {
+        return res.status(401).json({ message: 'Election password is required' });
+      }
+      const isMatch = await bcrypt.compare(votePassword, election.votePasswordHash || "");
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Invalid election password' });
+      }
     }
 
     const isCandidateValid = election.candidates.includes(candidateId);
@@ -58,10 +69,23 @@ export const castVote = async (req, res) => {
 
     await vote.save();
 
+    try {
+      const io = getIO();
+      io.to(`election:${electionId}`).emit("vote-updated", {
+        electionId,
+        candidateId,
+        voteCount: candidate.voteCount,
+        totalVotes: election.voters.length,
+      });
+    } catch (emitError) {
+      console.error("Socket emit failed:", emitError.message);
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Vote casted successfully',
-      voteId: vote._id
+      voteId: vote._id,
+      voteCount: candidate.voteCount
     });
 
   } catch (error) {
@@ -101,4 +125,3 @@ export const getVotesByElection = async (req, res) => {
     res.status(500).json({ message: 'Server error while fetching votes' });
   }
 };
-

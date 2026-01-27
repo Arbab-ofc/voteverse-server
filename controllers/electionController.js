@@ -1,23 +1,28 @@
-import express from 'express';
 import Election from '../models/Election.js';
 import Candidate from '../models/Candidate.js';
 import Vote from '../models/Vote.js';
+import bcrypt from 'bcryptjs';
 
 import mongoose from 'mongoose';
 
 export const createElection = async (req, res) => {
   try {
-    const { title, description, startDate, endDate } = req.body;
+    const { title, description, startDate, endDate, votePassword } = req.body;
 
-    
     const createdBy = req.user.id;
+    if (!votePassword) {
+      return res.status(400).json({ message: 'Election password is required' });
+    }
+    const votePasswordHash = await bcrypt.hash(votePassword, 10);
 
     const newElection = new Election({
       title,
       description,
       startDate,
       endDate,
-      createdBy
+      createdBy,
+      votePasswordHash,
+      isPasswordProtected: true
     });
 
     const savedElection = await newElection.save();
@@ -60,7 +65,7 @@ export const getElectionById = async (req, res) => {
 
     const election = await Election.findById(id)
       .populate('createdBy', 'name email')          
-      .populate('candidates' , 'name bio');                      
+      .populate('candidates' , 'name bio voteCount');                      
 
     if (!election) {
       return res.status(404).json({
@@ -86,7 +91,7 @@ export const getElectionById = async (req, res) => {
 export const updateElection = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, startDate, endDate, candidates } = req.body;
+    const { title, description, startDate, endDate, candidates, votePassword } = req.body;
 
     const election = await Election.findById(id);
     if (!election) {
@@ -120,6 +125,10 @@ export const updateElection = async (req, res) => {
     if (description) election.description = description;
     if (startDate) election.startDate = startDate;
     if (endDate) election.endDate = endDate;
+    if (votePassword) {
+      election.votePasswordHash = await bcrypt.hash(votePassword, 10);
+      election.isPasswordProtected = true;
+    }
 
     await election.save();
 
@@ -144,7 +153,6 @@ export const deleteElection = async (req, res) => {
       return res.status(404).json({ message: 'Election not found' });
     }
 
-    
     if (election.createdBy.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'You are not authorized to delete this election' });
     }
@@ -207,25 +215,25 @@ export const getElectionResult = async (req, res) => {
     }
 
     const sorted = election.candidates
-      .map(candidate => ({
+      .map((candidate) => ({
         candidate,
         votes: voteCounts[candidate._id.toString()] || 0
       }))
       .sort((a, b) => b.votes - a.votes);
 
-    const winner = sorted[0];
+    const winner = sorted.length ? sorted[0] : null;
 
     res.status(200).json({
       success: true,
       election,
       totalVotes: votes.length,
       result: sorted,
-      winner: winner || null
+      winner,
     });
 
   } catch (error) {
     console.error('❌ Error in getElectionResult:', error);
-    res.status(500).json({ message: 'Server error while fetching result' });
+    res.status(500).json({ message: 'Server error while fetching election results' });
   }
 };
 
@@ -246,9 +254,8 @@ export const endElection = async (req, res) => {
       return res.status(400).json({ message: 'Election is already ended' });
     }
 
-    
     election.isActive = false;
-    election.endDate = new Date(); 
+    election.endDate = new Date();
     await election.save();
 
     res.status(200).json({
@@ -263,91 +270,69 @@ export const endElection = async (req, res) => {
   }
 };
 
-
-
-
 export const addCandidateToElection = async (req, res) => {
   try {
     const { electionId } = req.params;
     const { candidateId } = req.body;
 
-   
     const election = await Election.findById(electionId);
     if (!election) {
       return res.status(404).json({ message: 'Election not found' });
     }
 
-    
     if (election.createdBy.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Only election creator can add candidates' });
     }
 
-    
-    const candidate = await Candidate.findById(candidateId);
-    if (!candidate) {
-      return res.status(404).json({ message: 'Candidate not found' });
-    }
-
-    
     const isAlreadyAdded = election.candidates.includes(candidateId);
     if (isAlreadyAdded) {
       return res.status(400).json({ message: 'Candidate already added to this election' });
     }
 
-    
     election.candidates.push(candidateId);
     await election.save();
 
     res.status(200).json({
-      success: true,
       message: 'Candidate added to election successfully',
       candidates: election.candidates,
     });
-
   } catch (error) {
     console.error('❌ Error in addCandidateToElection:', error);
-    res.status(500).json({ message: 'Server error while adding candidate' });
+    res.status(500).json({ message: 'Server error while adding candidate to election' });
   }
 };
 
 export const removeCandidateFromElection = async (req, res) => {
   try {
+    const { candidateId } = req.params;
     const { electionId } = req.body;
-    const { candidateId } = req.body;
 
-    
     const election = await Election.findById(electionId);
     if (!election) {
       return res.status(404).json({ message: 'Election not found' });
     }
 
-    
     if (election.createdBy.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Only election creator can remove candidates' });
     }
 
-    
     const candidateIndex = election.candidates.findIndex(
-      (cId) => cId.toString() === candidateId
+      (id) => id.toString() === candidateId
     );
 
     if (candidateIndex === -1) {
       return res.status(400).json({ message: 'Candidate not found in this election' });
     }
 
-    
     election.candidates.splice(candidateIndex, 1);
     await election.save();
 
     res.status(200).json({
-      success: true,
       message: 'Candidate removed from election successfully',
       candidates: election.candidates,
     });
-
   } catch (error) {
     console.error('❌ Error in removeCandidateFromElection:', error);
-    res.status(500).json({ message: 'Server error while removing candidate' });
+    res.status(500).json({ message: 'Server error while removing candidate from election' });
   }
 };
-
