@@ -41,6 +41,9 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
 
 app.get('/', (req, res) => {
   res.send('VoteVerse API is running...');
