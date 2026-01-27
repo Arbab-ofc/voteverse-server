@@ -11,10 +11,12 @@ import CandidateRouter from './routes/candidateRoutes.js';
 import VoterLogRouter from './routes/voterLogRoutes.js';
 import ContactRouter from './routes/contactRoutes.js';
 import AdminRouter from './routes/adminRoutes.js';
+import { initLogger } from './utils/logger.js';
 import { initSocket } from './socket.js';
 
 
 dotenv.config();
+initLogger();
 const app = express();
 
 const allowedOrigins = [
