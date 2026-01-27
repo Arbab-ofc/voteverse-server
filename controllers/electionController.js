@@ -201,34 +201,43 @@ export const getElectionResult = async (req, res) => {
     }
 
     const now = new Date();
-    if (election.endDate > now) {
-      return res.status(400).json({ message: 'Election has not ended yet' });
-    }
+    const isFinal = !election.isActive || (election.endDate && election.endDate <= now);
+    const totalVotes = await Vote.countDocuments({ electionId: id });
+    let sorted = [];
+    let winner = null;
 
-    const votes = await Vote.find({ electionId: id });
-    console.log('Votes found:', votes.length);
-    const voteCounts = {};
+    if (isFinal) {
+      const votes = await Vote.find({ electionId: id });
+      console.log('Votes found:', votes.length);
+      const voteCounts = {};
 
-    for (const vote of votes) {
-      const cid = vote.candidateId.toString();
-      voteCounts[cid] = (voteCounts[cid] || 0) + 1;
-    }
+      for (const vote of votes) {
+        const cid = vote.candidateId.toString();
+        voteCounts[cid] = (voteCounts[cid] || 0) + 1;
+      }
 
-    const sorted = election.candidates
-      .map((candidate) => ({
+      sorted = election.candidates
+        .map((candidate) => ({
+          candidate,
+          votes: voteCounts[candidate._id.toString()] || 0
+        }))
+        .sort((a, b) => b.votes - a.votes);
+
+      winner = sorted.length ? sorted[0] : null;
+    } else {
+      sorted = election.candidates.map((candidate) => ({
         candidate,
-        votes: voteCounts[candidate._id.toString()] || 0
-      }))
-      .sort((a, b) => b.votes - a.votes);
-
-    const winner = sorted.length ? sorted[0] : null;
+        votes: null
+      }));
+    }
 
     res.status(200).json({
       success: true,
       election,
-      totalVotes: votes.length,
+      totalVotes,
       result: sorted,
       winner,
+      isFinal
     });
 
   } catch (error) {

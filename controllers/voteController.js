@@ -76,6 +76,8 @@ export const castVote = async (req, res) => {
         candidateId,
         voteCount: candidate.voteCount,
         totalVotes: election.voters.length,
+        voterName: req.user?.name || "Someone",
+        votedAt: new Date().toISOString()
       });
     } catch (emitError) {
       console.error("Socket emit failed:", emitError.message);
