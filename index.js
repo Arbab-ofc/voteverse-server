@@ -23,6 +23,8 @@ const app = express();
 const allowedOrigins = [
   process.env.CLIENT_URL,
   "https://voteverse-client.vercel.app",
+  "https://voteverse.pw",
+  "https://www.voteverse.pw",
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:4173"
