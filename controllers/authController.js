@@ -1,8 +1,22 @@
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import generateToken from '../utils/generateToken.js'
 import sendEmail from '../utils/sendEmail.js'
 import generateOTP from '../utils/generateOTP.js'
+import { getFirebaseAdmin } from "../utils/firebaseAdmin.js";
+
+const normalizeName = (name, email) => {
+  const fallback = email?.split("@")[0] || "user";
+  let nextName = (name || fallback).replace(/\s+/g, " ").trim();
+  if (nextName.length < 6) {
+    nextName = `${nextName}${"user"}`.trim();
+  }
+  while (nextName.length < 6) {
+    nextName += "x";
+  }
+  return nextName;
+};
 
 
 
@@ -129,6 +143,63 @@ export const loginUser = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const googleLogin = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ message: "Missing Google ID token" });
+    }
+
+    const admin = getFirebaseAdmin();
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    const email = (decoded.email || "").toLowerCase();
+    if (!email) {
+      return res.status(400).json({ message: "Google account has no email" });
+    }
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      const randomPassword = crypto.randomBytes(24).toString("hex");
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+      user = await User.create({
+        name: normalizeName(decoded.name, email),
+        email,
+        password: hashedPassword,
+        isVerified: true,
+        otp: "",
+        otpExpiresAt: null,
+        isAdmin: false,
+      });
+    } else if (!user.isVerified) {
+      user.isVerified = true;
+      user.otp = "";
+      user.otpExpiresAt = null;
+      await user.save();
+    }
+
+    const token = generateToken(user._id);
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      message: "Login successful",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        isAdmin: user.isAdmin,
+      },
+    });
+  } catch (err) {
+    console.error("Google login error:", err);
+    res.status(500).json({ message: "Google login failed" });
   }
 };
 

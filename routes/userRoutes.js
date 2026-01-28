@@ -1,6 +1,7 @@
 import express from 'express';
 
 import { registerUser , loginUser,
+  googleLogin,
   verifyOtp,
   getUserProfile,
   logoutUser,
@@ -16,6 +17,7 @@ const UserRouter = express.Router();
 
 UserRouter.post('/register', registerUser);
 UserRouter.post('/login', loginUser);
+UserRouter.post('/google-login', googleLogin);
 UserRouter.post('/verify-otp', verifyOtp);
 UserRouter.post('/resend-otp', resendOtp);
 
