@@ -5,15 +5,48 @@ import bcrypt from 'bcryptjs';
 
 import mongoose from 'mongoose';
 
+const normalizeEmailList = (input) => {
+  if (!input) return [];
+  const list = Array.isArray(input) ? input : String(input).split(",");
+  const normalized = list
+    .map((item) => String(item).trim().toLowerCase())
+    .filter(Boolean);
+  return [...new Set(normalized)];
+};
+
+const normalizeDomainList = (input) => {
+  if (!input) return [];
+  const list = Array.isArray(input) ? input : String(input).split(",");
+  const normalized = list
+    .map((item) => String(item).trim().toLowerCase())
+    .filter(Boolean)
+    .map((value) => {
+      const atIndex = value.lastIndexOf("@");
+      const domain = atIndex >= 0 ? value.slice(atIndex) : `@${value}`;
+      return domain.startsWith("@") ? domain : `@${domain}`;
+    });
+  return [...new Set(normalized)];
+};
+
 export const createElection = async (req, res) => {
   try {
-    const { title, description, startDate, endDate, votePassword } = req.body;
+    const { title, description, startDate, endDate, votePassword, allowedEmails, allowedEmailDomains } = req.body;
 
     const createdBy = req.user.id;
-    if (!votePassword) {
+    const normalizedEmails = normalizeEmailList(allowedEmails);
+    const normalizedDomains = normalizeDomainList(allowedEmailDomains);
+    const hasRestrictions = normalizedEmails.length > 0 || normalizedDomains.length > 0;
+
+    if (!votePassword && !hasRestrictions) {
       return res.status(400).json({ message: 'Election password is required' });
     }
-    const votePasswordHash = await bcrypt.hash(votePassword, 10);
+
+    let votePasswordHash;
+    let isPasswordProtected = false;
+    if (!hasRestrictions && votePassword) {
+      votePasswordHash = await bcrypt.hash(votePassword, 10);
+      isPasswordProtected = true;
+    }
 
     const newElection = new Election({
       title,
@@ -22,7 +55,9 @@ export const createElection = async (req, res) => {
       endDate,
       createdBy,
       votePasswordHash,
-      isPasswordProtected: true
+      isPasswordProtected,
+      allowedEmails: normalizedEmails,
+      allowedEmailDomains: normalizedDomains
     });
 
     const savedElection = await newElection.save();
@@ -93,6 +128,7 @@ export const getElectionByIdPublic = async (req, res) => {
     const { id } = req.params;
 
     const election = await Election.findById(id)
+      .select('-allowedEmails -allowedEmailDomains')
       .populate('createdBy', 'name email')
       .populate('candidates', 'name bio voteCount');
 
@@ -119,7 +155,7 @@ export const getElectionByIdPublic = async (req, res) => {
 export const updateElection = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, startDate, endDate, candidates, votePassword } = req.body;
+    const { title, description, startDate, endDate, candidates, votePassword, allowedEmails, allowedEmailDomains } = req.body;
 
     const election = await Election.findById(id);
     if (!election) {
@@ -155,6 +191,18 @@ export const updateElection = async (req, res) => {
     if (endDate) election.endDate = endDate;
     if (votePassword) {
       election.votePasswordHash = await bcrypt.hash(votePassword, 10);
+      election.isPasswordProtected = true;
+    }
+    if (allowedEmails !== undefined) {
+      election.allowedEmails = normalizeEmailList(allowedEmails);
+    }
+    if (allowedEmailDomains !== undefined) {
+      election.allowedEmailDomains = normalizeDomainList(allowedEmailDomains);
+    }
+    const hasRestrictions = (election.allowedEmails?.length || 0) > 0 || (election.allowedEmailDomains?.length || 0) > 0;
+    if (hasRestrictions) {
+      election.isPasswordProtected = false;
+    } else if (election.votePasswordHash) {
       election.isPasswordProtected = true;
     }
 

@@ -27,7 +27,18 @@ export const castVote = async (req, res) => {
     if (!election.isActive || new Date() > election.endDate) {
       return res.status(400).json({ message: 'Election is not active' });
     }
-    if (election.isPasswordProtected) {
+    const allowedEmails = election.allowedEmails || [];
+    const allowedDomains = election.allowedEmailDomains || [];
+    const hasRestrictions = allowedEmails.length > 0 || allowedDomains.length > 0;
+
+    if (hasRestrictions) {
+      const voterEmail = (req.user?.email || "").trim().toLowerCase();
+      const voterDomain = voterEmail.includes("@") ? voterEmail.slice(voterEmail.lastIndexOf("@")) : "";
+      const isAllowed = allowedEmails.includes(voterEmail) || (voterDomain && allowedDomains.includes(voterDomain));
+      if (!isAllowed) {
+        return res.status(403).json({ message: 'Your email is not allowed to vote in this election' });
+      }
+    } else if (election.isPasswordProtected) {
       if (!votePassword) {
         return res.status(401).json({ message: 'Election password is required' });
       }

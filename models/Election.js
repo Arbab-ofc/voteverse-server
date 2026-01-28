@@ -40,6 +40,14 @@ const electionSchema = new mongoose.Schema({
   isPasswordProtected: {
     type: Boolean,
     default: false
+  },
+  allowedEmails: {
+    type: [String],
+    default: []
+  },
+  allowedEmailDomains: {
+    type: [String],
+    default: []
   }
 }, { timestamps: true });
 
